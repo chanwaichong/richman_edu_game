@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小學理財大富翁</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --warning: #f1c40f;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --bg: #e0f7fa;
+            --board-bg: #c8e6c9;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+            font-family: "Microsoft JhengHei", "Segoe UI", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--dark);
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 設置畫面 */
+        #setup-screen {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 85%;
+            max-width: 500px;
+            z-index: 10;
+        }
+
+        h1 { color: var(--primary); margin-bottom: 20px; font-size: 28px; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: var(--dark); }
+        select, input { width: 100%; padding: 12px; border: 2px solid var(--light); border-radius: 10px; font-size: 16px; outline: none; }
+        select:focus, input:focus { border-color: var(--primary); }
+        .player-row { display: flex; align-items: center; margin-bottom: 10px; background: var(--light); padding: 8px; border-radius: 10px; }
+        .color-dot { width: 20px; height: 20px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; border: 1px solid #aaa; }
+        
+        .btn {
+            background: var(--primary); color: white; border: none; padding: 12px 24px;
+            font-size: 18px; font-weight: bold; border-radius: 12px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-success { background: var(--success); }
+        .btn-danger { background: var(--danger); }
+        .btn-warning { background: var(--warning); color: var(--dark); }
+
+        /* 遊戲主畫面 */
+        #game-screen {
+            display: none; width: 100%; height: 100%; padding: 10px;
+            flex-direction: column; gap: 10px;
+        }
+
+        /* 頂部資訊列 (移除計時器，加入結束遊戲按鈕) */
+        .top-bar {
+            background: white; border-radius: 15px; padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); flex-shrink: 0;
+        }
+        .turn-info { font-size: 20px; font-weight: bold; display: flex; align-items: center; }
+
+        /* 內容區：左邊棋盤，右邊玩家資訊 */
+        .content-area {
+            display: flex; gap: 10px; flex-grow: 1; overflow: hidden;
+        }
+
+        /* 棋盤 (6x6 外圈 = 20格) */
+        .board-container {
+            flex: 2; background: white; border-radius: 15px; padding: 10px;
+            display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr);
+            gap: 5px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); position: relative;
+        }
+        
+        .cell {
+            border-radius: 10px; padding: 5px; display: flex; flex-direction: column;
+            justify-content: space-between; align-items: center; text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 2px solid transparent;
+            position: relative; overflow: hidden;
+        }
+        .cell-title { font-size: 13px; font-weight: bold; line-height: 1.2; word-break: break-all; margin-top: 2px; }
+        .cell-price { font-size: 11px; color: #555; }
+        .cell-owner { position: absolute; top: 0; left: 0; width: 100%; height: 4px; }
+        
+        .type-start { background: #fff9c4; border-color: #fbc02d; }
+        .type-prop { background: #e3f2fd; }
+        .type-q { background: #f3e5f5; border-color: #ab47bc; }
+        .type-shop { background: #e8f5e9; border-color: #4caf50; }
+        .type-game { background: #ffe0b2; border-color: #ff9800; }
+        
+        /* 玩家棋子 */
+        .tokens-container {
+            display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: auto;
+        }
+        .token {
+            width: 18px; height: 18px; border-radius: 50%; border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; justify-content: center;
+            align-items: center; font-size: 10px; color: white; font-weight: bold;
+        }
+
+        /* 中央控制區 */
+        .center-controls {
+            grid-column: 2 / 6; grid-row: 2 / 6;
+            background: #f8f9fa; border-radius: 15px; border: 3px dashed #bdc3c7;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 20px;
+        }
+        .dice {
+            width: 80px; height: 80px; background: white; border: 3px solid var(--dark);
+            border-radius: 15px; display: flex; justify-content: center; align-items: center;
+            font-size: 40px; font-weight: bold; box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+            cursor: pointer; transition: transform 0.2s; margin: 15px 0;
+        }
+        .dice.rolling { animation: spin 0.4s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 玩家狀態面板 */
+        .stats-panel {
+            flex: 1; background: white; border-radius: 15px; padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-y: auto;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .player-card {
+            border: 2px solid #eee; border-radius: 10px; padding: 10px; transition: 0.3s;
+        }
+        .player-card.active { border-color: var(--primary); background: #ebf5fb; transform: scale(1.02); box-shadow: 0 0 10px rgba(74, 144, 226, 0.3); }
+        .p-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 16px; }
+        .p-money { color: #27ae60; font-size: 18px; }
+        .p-items { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+        .item-badge {
+            background: var(--warning); font-size: 11px; padding: 2px 6px; border-radius: 8px; cursor: pointer;
+        }
+        .item-badge:active { transform: scale(0.9); }
+
+        /* 彈出視窗 (Modal) */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal {
+            background: white; padding: 25px; border-radius: 20px; text-align: center;
+            max-width: 450px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal h2 { color: var(--primary); margin-bottom: 15px; }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 15px; }
+
+        /* 問答題選項按鈕 */
+        .q-option {
+            display: block; width: 100%; padding: 12px; margin-bottom: 10px;
+            background: #f1f8ff; border: 2px solid #b6d4fe; border-radius: 10px;
+            font-size: 16px; cursor: pointer; text-align: left; transition: 0.2s;
+        }
+        .q-option:hover, .q-option:active { background: #cfe2ff; border-color: #0d6efd; }
+        
+        /* 迷你遊戲 */
+        #tap-btn { width: 150px; height: 150px; border-radius: 50%; font-size: 24px; margin: 10px auto; display: block; }
+        
+        .order-list { text-align: left; margin: 15px auto; width: 80%; font-size: 18px; }
+        .order-item { padding: 8px; border-bottom: 1px dashed #ccc; display: flex; align-items: center; gap: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- 設置畫面 -->
+    <div id="setup-screen">
+        <h1>🎓 終極大富翁</h1>
+        <p style="color: #666; margin-bottom: 20px;">包含語文、常識、謎語共80題挑戰！買地必須先答對問題！<br>遊戲結束請按右上角「結算遊戲」。</p>
+        
+        <div class="form-group">
+            <label>選擇人數：</label>
+            <select id="player-count" onchange="updateInputs()">
+                <option value="4">4 人</option>
+                <option value="5">5 人</option>
+            </select>
+        </div>
+        <div id="player-inputs"></div>
+        <button class="btn" style="width:100%;" onclick="startDrawLots()">隨機抽籤決定順序 🎲</button>
+    </div>
+
+    <!-- 遊戲畫面 -->
+    <div id="game-screen">
+        <div class="top-bar">
+            <div class="turn-info">
+                <div class="color-dot" id="turn-dot"></div>
+                <span>輪到 <strong id="turn-name">玩家</strong></span>
+            </div>
+            <!-- 移除計時器，改為手動結算按鈕 -->
+            <button class="btn btn-danger" style="padding: 8px 16px; font-size: 14px;" onclick="endGame()">🏆 結算遊戲</button>
+        </div>
+
+        <div class="content-area">
+            <div class="board-container" id="board">
+                <!-- 中央控制 -->
+                <div class="center-controls">
+                    <h3 id="center-msg" style="color:#555; margin-bottom:10px;">請投隨機骰子</h3>
+                    <div class="dice" id="dice-btn" onclick="rollDice()">🎲</div>
+                    <p style="font-size:13px; color:#888; margin-top:10px;">點擊右方背包可以使用道具</p>
+                </div>
+            </div>
+            
+            <div class="stats-panel" id="stats-panel">
+                <!-- 玩家卡片生成於此 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 通用彈窗 -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <h2 id="m-title">標題</h2>
+            <div id="m-desc" style="font-size: 18px; margin-bottom: 10px; line-height: 1.5;">說明文字</div>
+            <div id="m-content"></div>
+            <div class="modal-btns" id="m-btns"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 核心資料 ---
+        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
+        let players = [];
+        let currP = 0;
+        let isAction = false;
+        const ALL_QUESTIONS = [{"q": "【語文】「破釜沉舟」這個成語比喻什麼？", "options": ["下定決心，不顧一切到底", "破壞別人的船隻", "遇到困難就放棄", "形容水流很急"], "ans": 0}, {"q": "【語文】下列哪一個成語沒有「高興」的意思？", "options": ["心花怒放", "欣喜若狂", "愁眉不展", "喜出望外"], "ans": 2}, {"q": "【語文】「床前明月光」的下一句是？", "options": ["低頭思故鄉", "疑是地上霜", "舉頭望明月", "處處聞啼鳥"], "ans": 1}, {"q": "【語文】「狐假虎威」中，狐狸借了誰的威風？", "options": ["獅子", "大象", "老虎", "老鷹"], "ans": 2}, {"q": "【語文】下列哪個字的部首是「水」部？", "options": ["冰", "江", "冷", "炎"], "ans": 1}, {"q": "【語文】「畫蛇添足」比喻什麼？", "options": ["畫畫技術很好", "多此一舉，反而弄巧成拙", "蛇長出了腳", "事情做得很完美"], "ans": 1}, {"q": "【語文】下列哪一個詞語的讀音是錯誤的？", "options": ["骨骼(gé)", "絢(xuàn)麗", "塑(suò)膠", "蘊(yùn)藏"], "ans": 2}, {"q": "【語文】「守株待兔」屬於什麼類型的故事？", "options": ["神話故事", "寓言故事", "民間傳說", "歷史故事"], "ans": 1}, {"q": "【語文】下列哪一個字是錯別字？", "options": ["興高采烈", "迫不急待", "理直氣壯", "川流不息"], "ans": 1}, {"q": "【語文】「飛流直下三千尺，疑是銀河落九天」描寫的是什麼景色？", "options": ["星空", "瀑布", "大雨", "長江"], "ans": 1}, {"q": "【語文】「亡羊補牢」的「牢」字是什麼意思？", "options": ["牢房", "堅固", "養牲畜的圈", "繩子"], "ans": 2}, {"q": "【語文】「掩耳盜鈴」的人以為捂住自己的耳朵，別人就聽不到。這比喻什麼？", "options": ["自欺欺人", "聽力不好", "小偷很聰明", "鈴聲太大"], "ans": 0}, {"q": "【語文】李白是中國哪一個朝代的著名詩人？", "options": ["宋朝", "唐朝", "明朝", "清朝"], "ans": 1}, {"q": "【語文】「千鈞一髮」的「髮」字讀音是什麼？", "options": ["fā", "fà", "fá", "fǎ"], "ans": 1}, {"q": "【語文】下列哪個量詞使用不正確？", "options": ["一匹馬", "一條魚", "一隻牛", "一頭牛"], "ans": 2}, {"q": "【語文】「不恥下問」的意思是？", "options": ["不要問別人問題", "向地位或學問不如自己的人請教，不覺得丟臉", "問問題很無恥", "只問下面的人"], "ans": 1}, {"q": "【語文】「拔苗助長」告訴我們什麼道理？", "options": ["植物需要多澆水", "做事要順應規律，急於求成反而會壞事", "每天都要去田裡幫忙", "小苗長得很快"], "ans": 1}, {"q": "【語文】下列哪一個詞是反義詞？", "options": ["美麗-漂亮", "開心-快樂", "虛心-驕傲", "保護-保衛"], "ans": 2}, {"q": "【語文】古詩《春曉》的作者是誰？", "options": ["李白", "杜甫", "孟浩然", "白居易"], "ans": 2}, {"q": "【語文】「杯弓蛇影」中的「蛇」其實是什麼？", "options": ["真的蛇", "弓的影子", "樹枝", "繩子"], "ans": 1}, {"q": "【語文】「指鹿為馬」這個成語與歷史上哪位人物有關？", "options": ["秦始皇", "趙高", "劉邦", "項羽"], "ans": 1}, {"q": "【語文】下列哪一句話使用了「擬人」的修辭手法？", "options": ["他的臉紅得像蘋果。", "星星在夜空中向我們眨眼睛。", "這座山高入雲霄。", "他跑得比風還快。"], "ans": 1}, {"q": "【語文】「刻舟求劍」的故事中，那個人最後有沒有找到劍？", "options": ["有找到", "沒有找到", "被人偷走了", "劍自己浮上來了"], "ans": 1}, {"q": "【語文】「目不轉睛」用來形容什麼？", "options": ["眼睛痛", "注意力極不集中", "注意力高度集中", "睡不著覺"], "ans": 2}, {"q": "【語文】「井底之蛙」比喻什麼樣的人？", "options": ["見識淺薄的人", "喜歡跳躍的人", "喜歡住在水裡的人", "非常謙虛的人"], "ans": 0}, {"q": "【語文】「七上八下」通常用來形容什麼樣的心情？", "options": ["非常開心", "十分平靜", "心神不定，忐忑不安", "非常生氣"], "ans": 2}, {"q": "【語文】下列成語中，哪一個包含動物名稱？", "options": ["對牛彈琴", "五顏六色", "東張西望", "一心一意"], "ans": 0}, {"q": "【常識】地球上最大的海洋是哪一個？", "options": ["大西洋", "印度洋", "北冰洋", "太平洋"], "ans": 3}, {"q": "【常識】太陽系中體積最大的行星是？", "options": ["地球", "火星", "木星", "土星"], "ans": 2}, {"q": "【常識】人體最大的器官是什麼？", "options": ["心臟", "肝臟", "大腦", "皮膚"], "ans": 3}, {"q": "【常識】澳門是在哪一年正式回歸祖國的？", "options": ["1997年", "1998年", "1999年", "2000年"], "ans": 2}, {"q": "【常識】水在攝氏零度(0℃)時會發生什麼變化？", "options": ["沸騰", "變成水蒸氣", "結冰", "沒有變化"], "ans": 2}, {"q": "【常識】著名的發明家愛迪生發明了什麼？", "options": ["電話", "電燈泡", "飛機", "電腦"], "ans": 1}, {"q": "【常識】被稱為「百獸之王」的動物是？", "options": ["老虎", "獅子", "大象", "老鷹"], "ans": 0}, {"q": "【常識】一天之中，植物主要在什麼時候進行光合作用？", "options": ["晚上", "白天", "凌晨", "任何時候"], "ans": 1}, {"q": "【常識】世界上最高的山峰是哪一座？", "options": ["富士山", "阿爾卑斯山", "珠穆朗瑪峰", "乞力馬扎羅山"], "ans": 2}, {"q": "【常識】植物生長的三大基本要素不包括哪一項？", "options": ["陽光", "可樂", "水", "空氣"], "ans": 1}, {"q": "【常識】中國古代四大發明中，哪一項與航海最有關係？", "options": ["造紙術", "印刷術", "火藥", "指南針"], "ans": 3}, {"q": "【常識】澳門的區花是什麼？", "options": ["牡丹", "蓮花", "紫荊花", "梅花"], "ans": 1}, {"q": "【常識】我們呼吸時，吸入的主要生存氣體是什麼？", "options": ["二氧化碳", "氧氣", "氮氣", "氫氣"], "ans": 1}, {"q": "【常識】澳門的「大三巴牌坊」原本是一座什麼建築？", "options": ["學校", "醫院", "教堂", "政府大樓"], "ans": 2}, {"q": "【常識】下列哪一種動物屬於哺乳類動物？", "options": ["青蛙", "烏龜", "企鵝", "海豚"], "ans": 3}, {"q": "【常識】一年有四個季節，地球產生四季變化的主要原因是？", "options": ["地球自轉", "地球公轉", "太陽變熱", "月球引力"], "ans": 1}, {"q": "【常識】下列哪一種物質是絕緣體（不導電）？", "options": ["鐵絲", "銅線", "金幣", "橡皮擦"], "ans": 3}, {"q": "【常識】奧林匹克運動會的標誌是由幾個圓環組成的？", "options": ["三個", "四個", "五個", "六個"], "ans": 2}, {"q": "【常識】在太陽系中，地球是從太陽往外數的第幾顆行星？", "options": ["第一顆", "第二顆", "第三顆", "第四顆"], "ans": 2}, {"q": "【常識】被稱為「沙漠之舟」的動物是什麼？", "options": ["馬", "駱駝", "大象", "獅子"], "ans": 1}, {"q": "【常識】中國的「母親河」通常是指哪一條河？", "options": ["長江", "黃河", "珠江", "黑龍江"], "ans": 1}, {"q": "【常識】我們平時吃的「馬鈴薯」，主要是植物的哪一個部分？", "options": ["根", "莖", "葉", "果實"], "ans": 1}, {"q": "【常識】企鵝主要生活在地球的哪一個區域？", "options": ["北極", "南極", "赤道", "沙漠"], "ans": 1}, {"q": "【常識】聲音在下列哪種介質中傳播得最快？", "options": ["空氣", "水", "真空", "鋼鐵(固體)"], "ans": 3}, {"q": "【常識】世界上國土面積最大的國家是哪一個？", "options": ["中國", "美國", "加拿大", "俄羅斯"], "ans": 3}, {"q": "【常識】下列哪一種水果的維生素C含量非常豐富？", "options": ["奇異果", "香蕉", "西瓜", "蘋果"], "ans": 0}, {"q": "【常識】月亮本身會發光嗎？", "options": ["會", "不會，它反射太陽光", "會，因為上面有火山", "不會，它反射地球光"], "ans": 1}, {"q": "【字謎】一口咬掉牛尾巴。（猜一個字）", "options": ["午", "告", "失", "朱"], "ans": 1}, {"q": "【字謎】有人無人都是你。（猜一個字）", "options": ["他", "爾", "你", "人"], "ans": 1}, {"q": "【謎語】有腳不會走，有嘴不開口，給它吃什麼，它就吐什麼。（猜一物品）", "options": ["垃圾桶", "洗衣機", "信箱", "撲滿(存錢筒)"], "ans": 3}, {"q": "【字謎】太陽西邊下，月兒東邊掛。（猜一個字）", "options": ["明", "星", "早", "香"], "ans": 0}, {"q": "【謎語】說它是馬猜錯了，穿的衣服花道道，把它請進動物園，大人小孩都愛瞧。（猜一動物）", "options": ["長頸鹿", "斑馬", "老虎", "熊貓"], "ans": 1}, {"q": "【字謎】一家有七口，種田種一畝，自己吃不夠，還養一條狗。（猜一個字）", "options": ["獸", "田", "男", "畝"], "ans": 0}, {"q": "【字謎】十個哥哥。（猜一個字）", "options": ["克", "兄", "競", "多"], "ans": 0}, {"q": "【謎語】什麼東西越洗越髒，不洗反倒可以吃？（猜一自然物）", "options": ["衣服", "水", "水果", "蔬菜"], "ans": 1}, {"q": "【謎語】兄弟幾個真和氣，天天並肩坐一起，少時喜歡穿綠衣，老來都穿黃衣服。（猜一水果）", "options": ["蘋果", "香蕉", "西瓜", "橘子"], "ans": 1}, {"q": "【字謎】一月七日。（猜一個字）", "options": ["明", "脂", "旨", "膽"], "ans": 2}, {"q": "【字謎】一加一不是二。（猜一個字）", "options": ["王", "三", "豐", "十"], "ans": 0}, {"q": "【謎語】一間小木房，沒門也沒窗，只要紅娘來，劈啪響叮噹。（猜一節日物品）", "options": ["鞭炮", "燈籠", "火柴", "紅包"], "ans": 0}, {"q": "【謎語】生在水中，就怕水沖，一到水裡，無影無蹤。（猜一調味料）", "options": ["糖", "鹽", "胡椒", "醋"], "ans": 1}, {"q": "【字謎】門外漢。（猜一個字）", "options": ["閃", "闊", "闖", "們"], "ans": 2}, {"q": "【謎語】沒腳卻能走，有嘴不說話，白天滴答答，晚上滴答答。（猜一物品）", "options": ["水龍頭", "時鐘", "老鼠", "雨"], "ans": 1}, {"q": "【字謎】上面正差一橫，下面少去一點。（猜一個字）", "options": ["止", "步", "正", "少"], "ans": 1}, {"q": "【謎語】不管天氣熱不熱，它都穿著大皮襖，愛吃竹葉睡覺覺。（猜一動物）", "options": ["老虎", "大熊貓", "無尾熊", "猴子"], "ans": 1}, {"q": "【謎語】明明亮亮，又平又光，誰來看它，跟誰一樣。（猜一物品）", "options": ["水面", "玻璃", "鏡子", "電視"], "ans": 2}, {"q": "【字謎】中心一點口不見。（猜一個字）", "options": ["中", "回", "卜", "日"], "ans": 2}, {"q": "【謎語】綠帽子，紅帳子，裡頭睡著胖小子。（猜一食物）", "options": ["紅豆", "花生", "西瓜", "荔枝"], "ans": 1}, {"q": "【謎語】什麼東西打破了才能吃？", "options": ["碗", "西瓜", "雞蛋", "蘋果"], "ans": 2}, {"q": "【謎語】有面無口，有腳無手，聽人講話，自己不走。（猜一家具）", "options": ["電視", "收音機", "桌子", "時鐘"], "ans": 2}, {"q": "【謎語】看不見，摸不到，沒有顏色沒味道，動物植物都需要。（猜一自然物）", "options": ["陽光", "空氣", "水分", "土壤"], "ans": 1}, {"q": "【字謎】草木之中有個人。（猜一個字）", "options": ["茶", "花", "休", "森"], "ans": 0}, {"q": "【謎語】四四方方一座城，裡面住著百萬兵，遇到將軍來點兵，一齊出城不留情。（猜一物品）", "options": ["電視", "電腦", "火柴", "字典"], "ans": 2}, {"q": "【謎語】什麼東西能把整個房間裝滿，卻不佔一點空間？", "options": ["空氣", "光線", "聲音", "灰塵"], "ans": 1}];
+        
+        // 棋盤設定 (20格，繞著 6x6 邊緣)
+        const gridPos = [
+            {r:1, c:1}, {r:1, c:2}, {r:1, c:3}, {r:1, c:4}, {r:1, c:5}, {r:1, c:6},
+            {r:2, c:6}, {r:3, c:6}, {r:4, c:6}, {r:5, c:6},
+            {r:6, c:6}, {r:6, c:5}, {r:6, c:4}, {r:6, c:3}, {r:6, c:2}, {r:6, c:1},
+            {r:5, c:1}, {r:4, c:1}, {r:3, c:1}, {r:2, c:1}
+        ];
+
+        const mapData = [
+            { id: 0, name: "起點<br>(+$500)", type: "start", price: 0 },
+            { id: 1, name: "文具街", type: "prop", price: 200, rent: 50 },
+            { id: 2, name: "知識挑戰", type: "q", price: 0 },
+            { id: 3, name: "玩具大賣場", type: "prop", price: 300, rent: 80 },
+            { id: 4, name: "道具店", type: "shop", price: 0 },
+            { id: 5, name: "大三巴", type: "prop", price: 400, rent: 100 },
+            { id: 6, name: "知識挑戰", type: "q", price: 0 },
+            { id: 7, name: "美食街", type: "prop", price: 250, rent: 60 },
+            { id: 8, name: "圖書館", type: "prop", price: 200, rent: 50 },
+            { id: 9, name: "瘋狂點擊", type: "game", price: 0 }, 
+            { id: 10, name: "體育館", type: "prop", price: 300, rent: 80 },
+            { id: 11, name: "知識挑戰", type: "q", price: 0 },
+            { id: 12, name: "道具店", type: "shop", price: 0 },
+            { id: 13, name: "水族館", type: "prop", price: 350, rent: 90 },
+            { id: 14, name: "知識挑戰", type: "q", price: 0 },
+            { id: 15, name: "旅遊塔", type: "prop", price: 400, rent: 100 },
+            { id: 16, name: "電影院", type: "prop", price: 350, rent: 90 },
+            { id: 17, name: "知識挑戰", type: "q", price: 0 },
+            { id: 18, name: "科學博物館", type: "prop", price: 300, rent: 80 },
+            { id: 19, name: "冰淇淋店", type: "prop", price: 200, rent: 50 }
+        ];
+
+        const shopItems = [
+            { id: 'turtle', name: "烏龜卡", desc: "只走1步", price: 100 },
+            { id: 'remote', name: "遙控骰子", desc: "自選1~6步", price: 300 },
+            { id: 'free', name: "免租卡", desc: "抵銷一次租金", price: 200 }
+        ];
+
+        // --- 初始化與 UI ---
+        function updateInputs() {
+            const count = document.getElementById('player-count').value;
+            let html = '';
+            for(let i=0; i<count; i++) {
+                html += `
+                <div class="player-row">
+                    <div class="color-dot" style="background:${colors[i]}"></div>
+                    <input type="text" id="p-name-${i}" value="玩家${i+1}" maxlength="5">
+                </div>`;
+            }
+            document.getElementById('player-inputs').innerHTML = html;
+        }
+        updateInputs();
+
+        function startDrawLots() {
+            const count = document.getElementById('player-count').value;
+            let tempPlayers = [];
+            for(let i=0; i<count; i++) {
+                tempPlayers.push({
+                    id: i, name: document.getElementById(`p-name-${i}`).value || `玩家${i+1}`,
+                    color: colors[i], money: 1500, pos: 0, items: [], skip: false
+                });
+            }
+            
+            for (let i = tempPlayers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tempPlayers[i], tempPlayers[j]] = [tempPlayers[j], tempPlayers[i]];
+            }
+            
+            players = tempPlayers;
+            
+            let listHtml = `<div class="order-list">`;
+            players.forEach((p, index) => {
+                listHtml += `<div class="order-item">
+                    <strong>第 ${index + 1} 順位：</strong>
+                    <div class="color-dot" style="background:${p.color}"></div> ${p.name}
+                </div>`;
+            });
+            listHtml += `</div>`;
+            
+            showModal("🎲 抽籤結果", "遊戲先後順序已經隨機決定好囉！", listHtml, [
+                { text: "進入遊戲！", class: "btn-success", action: () => { closeModal(); enterGame(); } }
+            ]);
+        }
+
+        function enterGame() {
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'flex';
+            buildBoard();
+            updateUI();
+        }
+
+        function buildBoard() {
+            const board = document.getElementById('board');
+            mapData.forEach((tile, i) => {
+                let pos = gridPos[i];
+                let div = document.createElement('div');
+                div.className = `cell type-${tile.type}`;
+                div.style.gridRow = pos.r; div.style.gridColumn = pos.c;
+                div.innerHTML = `
+                    <div class="cell-owner" id="owner-${i}"></div>
+                    <div class="cell-title">${tile.name}</div>
+                    <div class="cell-price">${tile.price > 0 ? '$'+tile.price : ''}</div>
+                    <div class="tokens-container" id="cell-${i}"></div>
+                `;
+                board.appendChild(div);
+            });
+            renderTokens();
+        }
+
+        function renderTokens() {
+            for(let i=0; i<20; i++) document.getElementById(`cell-${i}`).innerHTML = '';
+            players.forEach(p => {
+                let t = document.createElement('div');
+                t.className = 'token'; t.style.background = p.color;
+                t.innerText = p.name[0];
+                document.getElementById(`cell-${p.pos}`).appendChild(t);
+            });
+        }
+
+        function updateUI() {
+            const panel = document.getElementById('stats-panel');
+            panel.innerHTML = '';
+            players.forEach((p, i) => {
+                let itemsHtml = p.items.map((it, idx) => 
+                    `<span class="item-badge" onclick="useItem(${i}, ${idx})">${it.name}</span>`
+                ).join('');
+                
+                panel.innerHTML += `
+                <div class="player-card ${i === currP ? 'active' : ''}">
+                    <div class="p-header">
+                        <span style="display:flex;align-items:center;">
+                            <div class="color-dot" style="background:${p.color};width:15px;height:15px;"></div>
+                            ${p.name} ${p.skip ? '(休)' : ''}
+                        </span>
+                        <span class="p-money">$${p.money}</span>
+                    </div>
+                    <div class="p-items">${itemsHtml || '<span style="font-size:11px;color:#aaa;">無道具</span>'}</div>
+                </div>`;
+            });
+
+            document.getElementById('turn-dot').style.background = players[currP].color;
+            document.getElementById('turn-name').innerText = players[currP].name;
+            document.getElementById('turn-name').style.color = players[currP].color;
+        }
+
+        // --- 核心邏輯：隨機骰子 ---
+        function rollDice(forcedSteps = null) {
+            if(isAction) return;
+            let p = players[currP];
+            if(p.skip) {
+                p.skip = false;
+                showMsg("休息中", `${p.name} 這回合暫停休息！`, "傳給下一位", nextTurn);
+                return;
+            }
+            
+            isAction = true;
+            const dice = document.getElementById('dice-btn');
+            dice.classList.add('rolling');
+            
+            let steps = forcedSteps;
+            let count = 0;
+            
+            let inter = setInterval(() => {
+                dice.innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][Math.floor(Math.random()*6)];
+                count++;
+                if(count > 10) {
+                    clearInterval(inter);
+                    dice.classList.remove('rolling');
+                    if(!steps) steps = Math.floor(Math.random() * 6) + 1;
+                    dice.innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][steps-1];
+                    movePlayer(steps);
+                }
+            }, 80);
+        }
+
+        function movePlayer(steps) {
+            let p = players[currP];
+            let oldPos = p.pos;
+            p.pos += steps;
+            
+            if(p.pos >= 20) {
+                p.pos %= 20;
+                p.money += 500;
+            }
+            renderTokens();
+            updateUI();
+            
+            setTimeout(() => handleTile(p.pos), 500);
+        }
+
+        function handleTile(pos) {
+            let tile = mapData[pos];
+            let p = players[currP];
+            
+            if(tile.type === 'start') {
+                showMsg("回到起點", "領取零用錢 $500！", "確定", checkBankruptAndNext);
+            } 
+            else if(tile.type === 'prop') {
+                if(!tile.ownerId && tile.ownerId !== 0) {
+                    if(p.money >= tile.price) {
+                        showModal(`🏠 發現土地：${tile.name}`, `這塊地售價 $${tile.price}，租金 $${tile.rent}。<br><br><strong style="color:var(--danger)">注意：你必須答對一道問題才能成功購買！</strong>你要挑戰嗎？`, "", [
+                            { text: "接受挑戰購買", class: "btn-success", action: () => showBuyQuestion(pos) },
+                            { text: "放棄購買", class: "btn-danger", action: checkBankruptAndNext }
+                        ]);
+                    } else {
+                        showMsg("資金不足", `這塊地要 $${tile.price}，但你只有 $${p.money}。`, "確定", checkBankruptAndNext);
+                    }
+                } else if(tile.ownerId !== p.id) {
+                    let owner = players[tile.ownerId];
+                    let rent = tile.rent;
+                    let freeCardIdx = p.items.findIndex(it => it.id === 'free');
+                    if(freeCardIdx > -1) {
+                        showModal("踩到別人的地！", `你要支付租金 $${rent} 給 ${owner.name}。<br>發現你有「免租卡」！要使用嗎？`, "", [
+                            { text: "使用免租卡", class: "btn-success", action: () => { p.items.splice(freeCardIdx, 1); showMsg("免付租金", "使用了免租卡，安全過關！", "確定", checkBankruptAndNext); } },
+                            { text: "乖乖付錢", class: "btn-warning", action: () => payRent(owner, rent) }
+                        ]);
+                    } else {
+                        payRent(owner, rent);
+                    }
+                } else {
+                    showMsg("自己的地", "這裡是你的地盤，好好休息吧！", "確定", checkBankruptAndNext);
+                }
+            }
+            else if(tile.type === 'q') {
+                askNormalQuestion();
+            }
+            else if(tile.type === 'shop') {
+                openShop();
+            }
+            else if(tile.type === 'game') {
+                playMiniGame();
+            }
+        }
+
+        // --- 買地考驗機制 ---
+        function showBuyQuestion(pos) {
+            let q = ALL_QUESTIONS[Math.floor(Math.random() * ALL_QUESTIONS.length)];
+            let content = `<div style="text-align:left; margin-top:15px;">`;
+            q.options.forEach((opt, i) => {
+                content += `<button class="q-option" onclick="handleBuyAnswer(${i === q.ans}, ${pos})">${opt}</button>`;
+            });
+            content += `</div>`;
+            showModal("📝 買地考驗", `<strong style="color:var(--danger)">答對才能買地！</strong><br><br>${q.q}`, content, [
+                { text: "放棄回答", class: "btn-danger", action: checkBankruptAndNext }
+            ]);
+        }
+
+        function handleBuyAnswer(isCorrect, pos) {
+            if(isCorrect) {
+                let p = players[currP];
+                let tile = mapData[pos];
+                p.money -= tile.price;
+                tile.ownerId = p.id;
+                document.getElementById(`owner-${pos}`).style.background = p.color;
+                showMsg("🎉 答對了！", `恭喜你成功買下【${tile.name}】！`, "繼續", checkBankruptAndNext);
+            } else {
+                showMsg("❌ 答錯了！", "很遺憾，這塊地不想賣給你，購買失敗，下次再來吧！", "繼續", checkBankruptAndNext);
+            }
+        }
+
+        // --- 普通知識題 (格子) ---
+        function askNormalQuestion() {
+            let q = ALL_QUESTIONS[Math.floor(Math.random() * ALL_QUESTIONS.length)];
+            let content = `<div style="text-align:left; margin-top:15px;">`;
+            q.options.forEach((opt, i) => {
+                content += `<button class="q-option" onclick="answerNormalQ(${i === q.ans})">${opt}</button>`;
+            });
+            content += `</div>`;
+            showModal("🤔 知識挑戰", q.q, content, []);
+        }
+
+        function answerNormalQ(isCorrect) {
+            let p = players[currP];
+            if(isCorrect) {
+                p.money += 200;
+                showMsg("✅ 答對了！", "太聰明了！獲得獎金 $200！", "繼續", checkBankruptAndNext);
+            } else {
+                p.money -= 50;
+                showMsg("❌ 答錯了！", "很可惜，被扣款 $50。", "繼續", checkBankruptAndNext);
+            }
+        }
+
+        // --- 其他功能 ---
+        function payRent(owner, rent) {
+            let p = players[currP];
+            p.money -= rent;
+            owner.money += rent;
+            showMsg("支付租金", `你付了 $${rent} 租金給 ${owner.name}。`, "確定", checkBankruptAndNext);
+        }
+
+        function openShop() {
+            let content = `<div style="text-align:left;">`;
+            shopItems.forEach((it, i) => {
+                content += `
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f9f9f9; padding:10px; margin-bottom:5px; border-radius:8px;">
+                    <div><strong>${it.name}</strong> ($${it.price})<br><small>${it.desc}</small></div>
+                    <button class="btn btn-warning" style="padding:5px 15px; font-size:14px;" onclick="buyItem(${i})">購買</button>
+                </div>`;
+            });
+            content += `</div>`;
+            showModal("🛒 道具店", "善用工具理財！你要買什麼？", content, [
+                { text: "離開商店", class: "btn-danger", action: checkBankruptAndNext }
+            ]);
+        }
+
+        function buyItem(idx) {
+            let p = players[currP];
+            let item = shopItems[idx];
+            if(p.money >= item.price) {
+                if(p.items.length >= 3) { alert("背包滿了！最多只能帶3個道具。"); return; }
+                p.money -= item.price;
+                p.items.push(item);
+                updateUI();
+                openShop();
+            } else {
+                alert("錢不夠喔！");
+            }
+        }
+
+        function playMiniGame() {
+            let clicks = 0;
+            let html = `
+                <p style="color:#e74c3c;font-weight:bold;">5秒內點擊按鈕 15 次，即可獲得 $300！</p>
+                <button id="tap-btn" class="btn btn-success">點擊我<br>(0)</button>
+            `;
+            showModal("👆 瘋狂點擊", "", html, []);
+            
+            let btn = document.getElementById('tap-btn');
+            let started = false;
+            
+            btn.onclick = () => {
+                if(!started) {
+                    started = true;
+                    setTimeout(() => {
+                        btn.onclick = null;
+                        if(clicks >= 15) {
+                            players[currP].money += 300;
+                            showMsg("🎉 挑戰成功！", "手速太神了！獲得獎金 $300！", "繼續", checkBankruptAndNext);
+                        } else {
+                            showMsg("💦 挑戰失敗！", `只點了 ${clicks} 次，再接再厲！`, "繼續", checkBankruptAndNext);
+                        }
+                    }, 5000);
+                }
+                clicks++;
+                btn.innerHTML = `點擊我<br>(${clicks})`;
+            };
+        }
+
+        function useItem(pIdx, itemIdx) {
+            if(pIdx !== currP || isAction) return; 
+            let p = players[currP];
+            let item = p.items[itemIdx];
+            
+            if(item.id === 'turtle') {
+                p.items.splice(itemIdx, 1); updateUI(); rollDice(1);
+            } else if(item.id === 'remote') {
+                let content = ``;
+                for(let i=1; i<=6; i++) content += `<button class="btn btn-warning" style="margin:5px;" onclick="closeModal(); document.getElementById('stats-panel').click(); p_use_remote(${i}, ${itemIdx})">${i} 步</button>`;
+                showModal("🎮 遙控骰子", "請選擇你要走的步數：", content, [{ text:"取消", class:"btn-danger", action:closeModal }]);
+            } else if(item.id === 'free') {
+                alert("免租卡在踩到別人土地時會自動詢問是否使用喔！");
+            }
+        }
+        function p_use_remote(steps, idx) {
+            players[currP].items.splice(idx, 1);
+            updateUI();
+            rollDice(steps);
+        }
+
+        function checkBankruptAndNext() {
+            let p = players[currP];
+            if(p.money < 0) {
+                p.money = 500;
+                p.skip = true;
+                showMsg("🏦 破產救助", "天啊！你破產了！學校發給你 $500 救濟金，但你需要暫停一回合反省理財規劃！", "領取並換人", () => {
+                    closeModal(); nextTurn();
+                });
+            } else {
+                closeModal(); nextTurn();
+            }
+        }
+
+        function nextTurn() {
+            currP = (currP + 1) % players.length;
+            isAction = false;
+            updateUI();
+        }
+
+        function endGame() {
+            if(!confirm("確定要結束遊戲並查看總結算嗎？")) return;
+            
+            players.forEach(p => {
+                let propValue = mapData.filter(m => m.ownerId === p.id).reduce((sum, m) => sum + m.price, 0);
+                p.totalAsset = p.money + propValue;
+            });
+            players.sort((a,b) => b.totalAsset - a.totalAsset);
+            
+            let html = `<div style="text-align:left; font-size:16px;">`;
+            players.forEach((p, i) => {
+                html += `<div style="margin-bottom:10px; padding:10px; background:${i==0?'#fff9c4':'#f1f1f1'}; border-radius:10px;">
+                    <strong>第 ${i+1} 名：${p.name}</strong><br>
+                    總資產：$${p.totalAsset} (現金 $${p.money})
+                </div>`;
+            });
+            html += `</div>`;
+            
+            showModal("🏆 遊戲結算排行榜", "恭喜完成遊戲，來看看大家的理財成果：", html, [
+                { text: "重新開始", class: "btn-success", action: () => location.reload() }
+            ]);
+        }
+
+        function showMsg(title, desc, btnText, callback) {
+            showModal(title, desc, "", [{ text: btnText, class: "btn-primary", action: callback }]);
+        }
+
+        function showModal(title, desc, customHtml, btns) {
+            document.getElementById('m-title').innerHTML = title;
+            document.getElementById('m-desc').innerHTML = desc;
+            document.getElementById('m-content').innerHTML = customHtml;
+            
+            let btnContainer = document.getElementById('m-btns');
+            btnContainer.innerHTML = '';
+            btns.forEach(b => {
+                let btn = document.createElement('button');
+                btn.className = `btn ${b.class}`; btn.innerText = b.text;
+                btn.onclick = b.action; btnContainer.appendChild(btn);
+            });
+            document.getElementById('modal-overlay').style.display = 'flex';
+        }
+        function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+
+    </script>
+</body>
+</html>
